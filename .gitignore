@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+*.log
+.DS_Store
+poker.db
+poker.db-*
+.env
+.env.local
+next-env.d.ts
