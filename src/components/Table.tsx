@@ -5,6 +5,8 @@ import type { GameView } from "@/lib/poker/types";
 import { MAX_SEATS } from "@/lib/poker/engine";
 import { PlayingCard } from "./PlayingCard";
 import { Seat } from "./Seat";
+import { PotPile } from "./Chips";
+import { ShowdownOverlay } from "./ShowdownOverlay";
 
 // Positions (left%, top%) around an oval; index 0 is bottom-center.
 function seatPositions(): { left: number; top: number }[] {
@@ -62,11 +64,17 @@ export function Table({
         </div>
       </div>
 
+      <ShowdownOverlay state={state} />
+
       {/* Center: board + pot */}
-      <div className="absolute left-1/2 top-[42%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
-        <div className="rounded-full bg-black/40 px-4 py-1 text-sm font-bold text-gold ring-1 ring-gold/30">
-          Pot {state.pot.toLocaleString()}
-        </div>
+      <div className="absolute left-1/2 top-[40%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3">
+        {state.pot > 0 ? (
+          <PotPile amount={state.pot} />
+        ) : (
+          <div className="text-xs font-semibold uppercase tracking-widest text-white/25">
+            {state.handNumber === 0 ? "Waiting for players" : ""}
+          </div>
+        )}
         <div className="flex gap-1.5">
           {Array.from({ length: 5 }).map((_, i) => {
             const card = state.board[i];
@@ -75,12 +83,12 @@ export function Table({
             ) : (
               <div
                 key={i}
-                className="h-20 w-14 rounded-lg border border-white/10 bg-black/20"
+                className="h-20 w-14 rounded-lg border border-white/10 bg-black/10"
               />
             );
           })}
         </div>
-        {state.lastHandSummary && state.stage === "showdown" && (
+        {state.lastHandSummary && state.stage !== "showdown" && (
           <div className="max-w-md rounded-lg bg-black/60 px-3 py-1 text-center text-xs text-white/80">
             {state.lastHandSummary}
           </div>

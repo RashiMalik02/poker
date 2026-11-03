@@ -113,4 +113,14 @@ export interface AuthUser {
   id: number;
   username: string;
   bankroll: number;
+  isAdmin: boolean;
+}
+
+export interface LeaderEntry {
+  id: number;
+  username: string;
+  bankroll: number;
+  inPlay: number;
+  total: number;
+  isAdmin: boolean;
 }

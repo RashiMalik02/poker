@@ -1,7 +1,7 @@
 import type { Server, Socket } from "socket.io";
 import { PokerTable, DEFAULT_CONFIG, MAX_SEATS } from "@/lib/poker/engine";
 import type { PlayerAction } from "@/lib/poker/types";
-import { depositBankroll, getBankroll, withdrawBankroll } from "./db";
+import { depositBankroll, getBankroll, setInPlay, withdrawBankroll } from "./db";
 
 const TURN_SECONDS = 40;
 const NEXT_HAND_DELAY_MS = 4500;
@@ -48,6 +48,29 @@ export class GameManager {
     }
   }
 
+  // Total chips a user currently has sitting at any table (for the leaderboard).
+  private totalInPlay(userId: number): number {
+    let total = 0;
+    for (const room of this.rooms.values()) {
+      const p = room.playerByUser(userId);
+      if (p) total += p.stack + p.bet;
+    }
+    return total;
+  }
+
+  // Persist the in-play totals for everyone seated in a room.
+  private syncInPlay(code: string) {
+    const room = this.rooms.get(code);
+    if (!room) return;
+    const seen = new Set<number>();
+    for (const p of room.seats) {
+      if (p && !seen.has(p.userId)) {
+        seen.add(p.userId);
+        setInPlay(p.userId, this.totalInPlay(p.userId));
+      }
+    }
+  }
+
   // ---------- actions triggered by socket handlers ----------
 
   sit(socket: Socket, seat: number, buyIn: number): string | null {
@@ -69,6 +92,7 @@ export class GameManager {
       return err;
     }
     this.maybeStart(code);
+    this.syncInPlay(code);
     this.broadcast(code);
     return null;
   }
@@ -79,6 +103,7 @@ export class GameManager {
     if (!room) return "Room not found";
     const chips = room.standUp(userId);
     if (chips === null) return "Not seated";
+    setInPlay(userId, this.totalInPlay(userId));
     if (chips > 0) depositBankroll(userId, chips);
     this.afterStateChange(code);
     return null;
@@ -96,6 +121,7 @@ export class GameManager {
       return err;
     }
     this.maybeStart(code);
+    this.syncInPlay(code);
     this.broadcast(code);
     return null;
   }
@@ -133,11 +159,18 @@ export class GameManager {
     if (!room) return;
     room.setConnected(userId, false);
     this.broadcast(code);
-    // Clean up empty rooms.
+    // Clean up empty rooms — return any chips still on the table to bankrolls
+    // so they're never lost when everyone leaves.
     if (room.occupiedCount() === 0) {
       const t = this.timers.get(code);
       if (t?.turn) clearTimeout(t.turn);
       if (t?.nextHand) clearTimeout(t.nextHand);
+      for (const p of room.seats) {
+        if (p) {
+          if (p.stack + p.bet > 0) depositBankroll(p.userId, p.stack + p.bet);
+          setInPlay(p.userId, 0);
+        }
+      }
       this.rooms.delete(code);
       this.timers.delete(code);
     }
@@ -150,6 +183,7 @@ export class GameManager {
     if (!room) return;
     if (room.handOver) {
       this.settleDepartures(code);
+      this.syncInPlay(code);
       this.broadcast(code);
       this.scheduleNextHand(code);
     } else {

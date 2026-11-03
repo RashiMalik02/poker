@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AuthUser } from "@/lib/poker/types";
+import type { AuthUser, GameView } from "@/lib/poker/types";
 import { getUser } from "@/lib/client/auth";
 import { useGame } from "@/lib/client/useGame";
+import { initSound, isMuted, setMuted, Sounds } from "@/lib/client/sound";
 import { Table } from "@/components/Table";
 import { Controls } from "@/components/Controls";
 import { SidePanel } from "@/components/SidePanel";
@@ -14,6 +15,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
   const code = params.code.toUpperCase();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [ready, setReady] = useState(false);
+  const [muted, setMutedState] = useState(false);
 
   useEffect(() => {
     const u = getUser();
@@ -23,6 +25,15 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     }
     setUser(u);
     setReady(true);
+    setMutedState(isMuted());
+    // Unlock audio on the first interaction (browser autoplay policy).
+    const unlock = () => initSound();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, [router]);
 
   const game = useGame(code);
@@ -31,13 +42,65 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     if (game.error === "not-authenticated") router.replace("/");
   }, [game.error, router]);
 
+  // Sound effects driven by diffing successive game states.
+  const prevRef = useRef<GameView | null>(null);
+  useEffect(() => {
+    const next = game.state;
+    if (!next || !user) {
+      prevRef.current = next ?? null;
+      return;
+    }
+    const prev = prevRef.current;
+    const mySeat = next.players.find((p) => p.userId === user.id)?.seat ?? -1;
+
+    if (prev) {
+      if (next.handNumber !== prev.handNumber && next.stage === "preflop") Sounds.deal();
+      if (next.board.length > prev.board.length) Sounds.flip();
+
+      const prevActions = new Map(prev.players.map((p) => [p.seat, p.lastAction]));
+      for (const p of next.players) {
+        const before = prevActions.get(p.seat);
+        if (p.lastAction && p.lastAction !== before) {
+          switch (p.lastAction) {
+            case "fold": Sounds.fold(); break;
+            case "check": Sounds.check(); break;
+            case "call": Sounds.call(); break;
+            case "bet":
+            case "raise": Sounds.chips(); break;
+            case "allin": Sounds.allin(); break;
+          }
+        }
+      }
+
+      if (next.currentToAct === mySeat && prev.currentToAct !== mySeat && mySeat >= 0) {
+        Sounds.turn();
+      }
+
+      if (next.stage === "showdown" && prev.stage !== "showdown") {
+        const mine = next.showdown?.find((r) => r.seat === mySeat);
+        if (mine && mine.won > 0) Sounds.win();
+        else if (mine) Sounds.lose();
+      }
+    }
+    prevRef.current = next;
+  }, [game.state, user]);
+
   const me = useMemo(
     () => game.state?.players.find((p) => p.userId === user?.id),
     [game.state, user?.id]
   );
   const [rebuyOpen, setRebuyOpen] = useState(false);
 
+  function toggleMute() {
+    initSound();
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  }
+
   if (!ready || !user) return null;
+
+  const broke = me && me.stack === 0 && !me.inHand;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-3 p-3 lg:p-5">
@@ -46,6 +109,13 @@ export default function RoomPage({ params }: { params: { code: string } }) {
           ← Lobby
         </button>
         <div className="flex items-center gap-3">
+          <button
+            className="btn-ghost px-2.5 py-1.5 text-sm"
+            onClick={toggleMute}
+            title={muted ? "Unmute" : "Mute"}
+          >
+            {muted ? "🔇" : "🔊"}
+          </button>
           <span
             className={`h-2.5 w-2.5 rounded-full ${game.connected ? "bg-emerald-400" : "bg-red-500"}`}
             title={game.connected ? "connected" : "disconnected"}
@@ -57,6 +127,13 @@ export default function RoomPage({ params }: { params: { code: string } }) {
       {game.error && game.error !== "not-authenticated" && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/15 px-4 py-2 text-sm text-red-200">
           {game.error}
+        </div>
+      )}
+
+      {broke && (
+        <div className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-sm text-gold">
+          You&apos;re out of chips. Use <b>Add chips</b> to rebuy from your bankroll — or ask an
+          admin to top you up (Admin panel → Grant). No need to make a new account.
         </div>
       )}
 
@@ -75,7 +152,6 @@ export default function RoomPage({ params }: { params: { code: string } }) {
             </div>
           )}
 
-          {/* Action bar */}
           <div className="panel p-4">
             {game.state && me ? (
               <div className="space-y-3">
@@ -92,11 +168,8 @@ export default function RoomPage({ params }: { params: { code: string } }) {
                     >
                       Add chips
                     </button>
-                    <button
-                      className="btn-ghost px-3 py-1.5 text-xs"
-                      onClick={() => game.stand()}
-                    >
-                      Stand up
+                    <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => game.stand()}>
+                      Cash out &amp; leave
                     </button>
                   </div>
                 </div>
