@@ -31,8 +31,12 @@ export function clearAuth() {
   localStorage.removeItem(USER_KEY);
 }
 
+// The auth/login endpoint lives on the backend (same-origin by default, or the
+// Render backend in a split deploy).
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+
 export async function login(username: string, password: string): Promise<AuthUser> {
-  const res = await fetch("/api/login", {
+  const res = await fetch(`${BACKEND}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),

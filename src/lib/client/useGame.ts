@@ -29,7 +29,12 @@ export function useGame(code: string): GameApi {
       setError("not-authenticated");
       return;
     }
-    const socket = io({ auth: { token, code }, transports: ["websocket", "polling"] });
+    // In a split deploy the backend lives on another origin (e.g. Render).
+    // When NEXT_PUBLIC_BACKEND_URL is unset we connect same-origin.
+    const backend = process.env.NEXT_PUBLIC_BACKEND_URL;
+    const socket = backend
+      ? io(backend, { auth: { token, code }, transports: ["websocket", "polling"] })
+      : io({ auth: { token, code }, transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
     socket.on("connect", () => setConnected(true));

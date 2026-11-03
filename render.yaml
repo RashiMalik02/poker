@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: poker-backend
+    runtime: node
+    plan: free
+    # --include=dev ensures build-only tools (next, tailwind, typescript) are
+    # present even when Render sets NODE_ENV=production during install.
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: NODE_VERSION
+        value: "20"
