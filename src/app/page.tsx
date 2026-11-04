@@ -26,7 +26,8 @@ export default function Home() {
     const u = getUser();
     if (u) {
       setUser(u);
-      refreshUser().then((fresh) => fresh && setUser(fresh));
+      // If the session is dead (e.g. server data was reset), drop back to sign-in.
+      refreshUser().then((fresh) => setUser(fresh));
     }
   }, []);
 

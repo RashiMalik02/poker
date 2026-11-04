@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import type { GameView, PlayerAction } from "@/lib/poker/types";
-import { getToken } from "./auth";
+import { clearAuth, getToken } from "./auth";
 
 export interface GameApi {
   state: GameView | null;
@@ -39,7 +39,15 @@ export function useGame(code: string): GameApi {
 
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
-    socket.on("connect_error", (err) => setError(err.message));
+    socket.on("connect_error", (err) => {
+      // A rejected handshake means the saved token is no longer valid.
+      if (/unauthorized|unknown user/i.test(err.message)) {
+        clearAuth();
+        setError("not-authenticated");
+      } else {
+        setError(err.message);
+      }
+    });
     socket.on("state", (view: GameView) => setState(view));
     socket.on("errorMessage", (msg: string) => {
       setError(msg);

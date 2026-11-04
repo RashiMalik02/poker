@@ -53,11 +53,17 @@ function authHeaders(): Record<string, string> {
 }
 
 // Re-fetch the signed-in user so bankroll / admin status stay fresh.
+// Returns null and clears a dead session if the token is no longer valid
+// (e.g. the account was wiped), so the UI can send the user back to sign in.
 export async function refreshUser(): Promise<AuthUser | null> {
   const token = getToken();
   if (!token) return null;
   try {
     const res = await fetch(`${BACKEND}/api/me`, { headers: authHeaders() });
+    if (res.status === 401) {
+      clearAuth();
+      return null;
+    }
     if (!res.ok) return null;
     const data = await res.json();
     const user = data.user as AuthUser;
