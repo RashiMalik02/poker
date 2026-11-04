@@ -3,7 +3,6 @@ import { PokerTable, DEFAULT_CONFIG, MAX_SEATS } from "@/lib/poker/engine";
 import type { PlayerAction } from "@/lib/poker/types";
 import { depositBankroll, getBankroll, setInPlay, withdrawBankroll } from "./db";
 
-const TURN_SECONDS = 40;
 const NEXT_HAND_DELAY_MS = 4500;
 
 interface RoomTimers {
@@ -233,13 +232,15 @@ export class GameManager {
     const seat = room.actingSeat;
     const player = room.seats[seat];
     if (!player) return;
+    // Fire exactly at the engine's turn deadline so the client countdown matches.
+    const delay = Math.max(0, room.turnEndsAt - Date.now());
     timers.turn = setTimeout(() => {
       timers.turn = undefined;
       if (room.handOver || room.actingSeat !== seat) return;
       const canCheck = room.currentBet - player.bet <= 0;
       room.act(player.userId, { type: canCheck ? "check" : "fold" });
       this.afterStateChange(code);
-    }, TURN_SECONDS * 1000);
+    }, delay + 250); // small grace so the client hits 0 first
   }
 }
 

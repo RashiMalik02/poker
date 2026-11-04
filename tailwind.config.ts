@@ -27,6 +27,15 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(-40px) scale(0.8)" },
           "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
         },
+        flipIn: {
+          "0%": { opacity: "0", transform: "perspective(600px) rotateY(85deg) translateY(-18px) scale(0.9)" },
+          "60%": { opacity: "1" },
+          "100%": { opacity: "1", transform: "perspective(600px) rotateY(0deg) translateY(0) scale(1)" },
+        },
+        winGlow: {
+          "0%,100%": { boxShadow: "0 0 0 rgba(232,193,90,0)" },
+          "50%": { boxShadow: "0 0 18px rgba(232,193,90,0.9)" },
+        },
         pulseRing: {
           "0%": { boxShadow: "0 0 0 0 rgba(232,193,90,0.7)" },
           "70%": { boxShadow: "0 0 0 12px rgba(232,193,90,0)" },
@@ -39,8 +48,10 @@ const config: Config = {
       },
       animation: {
         dealIn: "dealIn 0.35s ease-out both",
+        flipIn: "flipIn 0.45s cubic-bezier(0.2,0.8,0.2,1) both",
         pulseRing: "pulseRing 1.6s infinite",
         chipToPot: "chipToPot 0.6s ease-out forwards",
+        winGlow: "winGlow 1.1s ease-in-out infinite",
       },
     },
   },

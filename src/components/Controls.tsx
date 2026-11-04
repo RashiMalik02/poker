@@ -28,7 +28,7 @@ export function Controls({
   }
 
   const { callAmount, canCheck, minRaiseTo, maxRaiseTo } = info;
-  const canRaise = maxRaiseTo > state.currentBet && maxRaiseTo >= minRaiseTo;
+  const canRaise = info.canRaise && maxRaiseTo >= minRaiseTo;
   const pot = state.pot;
   const isAllInRaise = raiseTo >= maxRaiseTo;
 

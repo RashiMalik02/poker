@@ -1,6 +1,7 @@
 import type { PublicPlayer, ShowdownResult } from "@/lib/poker/types";
 import { PlayingCard } from "./PlayingCard";
 import { ChipStack } from "./Chips";
+import { TurnTimer } from "./TurnTimer";
 
 export function Seat({
   player,
@@ -8,6 +9,7 @@ export function Seat({
   isCurrent,
   isMe,
   showdown,
+  turnEndsAt,
   onSit,
 }: {
   player: PublicPlayer | null;
@@ -15,6 +17,7 @@ export function Seat({
   isCurrent: boolean;
   isMe: boolean;
   showdown?: ShowdownResult;
+  turnEndsAt?: number;
   onSit?: () => void;
 }) {
   if (!player) {
@@ -39,10 +42,10 @@ export function Seat({
       <div className={`mb-1 flex gap-0.5 ${folded ? "opacity-30" : ""}`}>
         {player.holeCards
           ? player.holeCards.map((c, i) => (
-              <PlayingCard key={i} card={c} size={isMe ? "md" : "sm"} dim={folded} deal />
+              <PlayingCard key={i} card={c} size={isMe ? "md" : "sm"} dim={folded} deal delay={i * 90} />
             ))
           : Array.from({ length: player.cardsFaceDown }).map((_, i) => (
-              <PlayingCard key={i} size="sm" faceDown deal />
+              <PlayingCard key={i} size="sm" faceDown deal delay={i * 90} />
             ))}
       </div>
 
@@ -84,6 +87,8 @@ export function Seat({
           </div>
         )}
       </div>
+
+      {isCurrent && turnEndsAt ? <TurnTimer endsAt={turnEndsAt} /> : null}
 
       {won && (
         <div className="absolute -bottom-6 z-10 animate-dealIn whitespace-nowrap rounded-full bg-gold px-2.5 py-0.5 text-xs font-black text-black shadow-lg">

@@ -83,6 +83,7 @@ export interface GameView {
   pots: { amount: number; eligible: number[] }[];
   dealerSeat: number;
   currentToAct: number; // -1 when nobody is to act
+  turnEndsAt: number; // epoch ms the current turn auto-resolves (0 when none)
   currentBet: number;
   minRaise: number;
   smallBlind: number;
@@ -95,6 +96,7 @@ export interface GameView {
     minRaiseTo: number; // smallest legal "raise to" total
     maxRaiseTo: number; // all-in total
     canCheck: boolean;
+    canRaise: boolean; // false when the action isn't open to a raise
   } | null;
   showdown: ShowdownResult[] | null;
   lastHandSummary: string | null;

@@ -13,6 +13,9 @@ import { compareScores, evaluateBest, HandScore } from "./handEvaluator";
 
 export const MAX_SEATS = 9;
 
+// Time each player has to act before they're auto-checked/folded.
+export const TURN_MS = 30_000;
+
 export interface TableConfig {
   smallBlind: number;
   bigBlind: number;
@@ -40,6 +43,7 @@ export class PokerTable {
   stage: Stage = "waiting";
   dealerSeat = -1;
   actingSeat = -1;
+  turnEndsAt = 0; // epoch ms the current player's turn auto-resolves
   currentBet = 0;
   minRaise = 0;
   pot = 0; // chips already collected into the pot from previous streets
@@ -210,7 +214,7 @@ export class PokerTable {
 
     this.stage = "preflop";
     // First to act preflop is left of the big blind (which is the button heads-up).
-    this.actingSeat = this.firstToActFrom(this.nextInHandSeat(bbSeat));
+    this.setActing(this.firstToActFrom(this.nextInHandSeat(bbSeat)));
     this.lastHandSummary = null;
     this.system(`Hand #${this.handNumber} dealt. Blinds ${this.config.smallBlind}/${this.config.bigBlind}.`);
 
@@ -296,10 +300,21 @@ export class PokerTable {
     return null;
   }
 
+  // A player may only raise if the action was (re)opened to them — i.e. they
+  // haven't yet acted since the last full-sized bet or raise. This enforces the
+  // incomplete-raise rule: a short all-in that is less than a full raise does
+  // not give players who already acted the right to re-raise.
+  private canReopen(p: Player): boolean {
+    return !p.hasActed;
+  }
+
   private validateRaise(p: Player, raiseTo: number): string | null {
     const allInTo = p.bet + p.stack;
     const isAllIn = raiseTo >= allInTo;
     if (raiseTo > allInTo) return "You don't have that many chips";
+    if (this.currentBet > 0 && !this.canReopen(p)) {
+      return "You can only call or fold — the raise was incomplete";
+    }
     if (this.currentBet === 0) {
       // Opening bet.
       if (!isAllIn && raiseTo < this.config.bigBlind) {
@@ -335,8 +350,13 @@ export class PokerTable {
       // Betting round is complete.
       this.advanceStreet();
     } else {
-      this.actingSeat = next;
+      this.setActing(next);
     }
+  }
+
+  private setActing(seat: number) {
+    this.actingSeat = seat;
+    this.turnEndsAt = seat >= 0 ? Date.now() + TURN_MS : 0;
   }
 
   private advanceStreet() {
@@ -364,7 +384,7 @@ export class PokerTable {
       return;
     }
 
-    this.actingSeat = this.firstToActFrom(this.nextInHandSeat(this.dealerSeat));
+    this.setActing(this.firstToActFrom(this.nextInHandSeat(this.dealerSeat)));
     if (this.actingSeat === -1) this.runOutAndShowdown();
   }
 
@@ -529,7 +549,7 @@ export class PokerTable {
 
   private finishHand() {
     this.handOver = true;
-    this.actingSeat = -1;
+    this.setActing(-1);
   }
 
   // Remove players who asked to leave; caller returns their chips to bankroll.
@@ -634,12 +654,16 @@ export class PokerTable {
         maxRaiseTo,
         this.currentBet === 0 ? this.config.bigBlind : this.currentBet + this.minRaise
       );
+      // Can only raise if the action is open to them and they have chips past a call.
+      const canRaise =
+        maxRaiseTo > this.currentBet && (this.currentBet === 0 || this.canReopen(me));
       toActInfo = {
         seat: me.seat,
         callAmount: Math.max(0, Math.min(toCall, me.stack)),
         minRaiseTo,
         maxRaiseTo,
         canCheck: toCall <= 0,
+        canRaise,
       };
     }
 
@@ -654,6 +678,7 @@ export class PokerTable {
       pots: livePots,
       dealerSeat: this.dealerSeat,
       currentToAct: this.handOver ? -1 : this.actingSeat,
+      turnEndsAt: this.handOver ? 0 : this.turnEndsAt,
       currentBet: this.currentBet,
       minRaise: this.minRaise,
       smallBlind: this.config.smallBlind,

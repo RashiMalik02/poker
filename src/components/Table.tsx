@@ -78,8 +78,10 @@ export function Table({
         <div className="flex gap-1.5">
           {Array.from({ length: 5 }).map((_, i) => {
             const card = state.board[i];
+            // Stagger the flop reveal; turn and river land on their own.
+            const delay = i < 3 ? i * 110 : 0;
             return card ? (
-              <PlayingCard key={i} card={card} size="lg" deal />
+              <PlayingCard key={i} card={card} size="lg" deal delay={delay} />
             ) : (
               <div
                 key={i}
@@ -111,6 +113,7 @@ export function Table({
               isCurrent={state.currentToAct === seatIndex}
               isMe={player?.userId === myUserId}
               showdown={showdownBySeat.get(seatIndex) ?? undefined}
+              turnEndsAt={state.currentToAct === seatIndex ? state.turnEndsAt : undefined}
               onSit={!amSeated && !player ? () => setSitSeat(seatIndex) : undefined}
             />
           </div>

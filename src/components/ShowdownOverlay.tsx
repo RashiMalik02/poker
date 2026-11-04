@@ -34,7 +34,7 @@ export function ShowdownOverlay({ state }: { state: GameView }) {
                 </div>
                 <div className="flex gap-0.5">
                   {r.cards.map((c, i) => (
-                    <PlayingCard key={i} card={c} size="sm" />
+                    <PlayingCard key={i} card={c} size="sm" highlight={won} />
                   ))}
                 </div>
                 {won && (
