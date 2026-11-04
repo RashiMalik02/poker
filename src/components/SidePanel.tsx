@@ -14,10 +14,17 @@ export function SidePanel({
 }) {
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = listRef.current;
+    if (!el) return;
+    // Only auto-scroll the chat container itself (never the window), and only
+    // when the user is already near the bottom so reading history isn't interrupted.
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (nearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages.length]);
 
   function send(e: React.FormEvent) {
@@ -45,7 +52,7 @@ export function SidePanel({
         </button>
       </div>
 
-      <div className="scroll-thin flex-1 space-y-1.5 overflow-y-auto p-3 text-sm">
+      <div ref={listRef} className="scroll-thin flex-1 space-y-1.5 overflow-y-auto p-3 text-sm">
         {messages.length === 0 && (
           <p className="text-xs text-white/30">Game log and chat will appear here.</p>
         )}
@@ -61,7 +68,6 @@ export function SidePanel({
             </p>
           )
         )}
-        <div ref={endRef} />
       </div>
 
       <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-3">
