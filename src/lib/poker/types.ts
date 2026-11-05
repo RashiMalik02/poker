@@ -68,9 +68,11 @@ export interface PublicPlayer {
   sittingOut: boolean;
   connected: boolean;
   lastAction?: ActionType;
-  // Hole cards: present only for the receiving player, or at showdown.
+  // Hole cards: present only for the receiving player, at showdown, or when
+  // the player chose to show their cards.
   holeCards: Card[] | null;
   cardsFaceDown: number; // how many face-down cards to render for this player
+  revealed: boolean; // player voluntarily showed their cards this hand
   leaving?: boolean;
 }
 
@@ -82,6 +84,7 @@ export interface GameView {
   pot: number; // total in all pots (for display)
   pots: { amount: number; eligible: number[] }[];
   dealerSeat: number;
+  paused: boolean; // table is paused — no new hands, turn clock frozen
   currentToAct: number; // -1 when nobody is to act
   turnEndsAt: number; // epoch ms the current turn auto-resolves (0 when none)
   currentBet: number;

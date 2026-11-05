@@ -135,6 +135,43 @@ export class GameManager {
     return null;
   }
 
+  setPause(socket: Socket, paused: boolean): string | null {
+    const { code, userId, username } = socket.data as {
+      code: string;
+      userId: number;
+      username: string;
+    };
+    const room = this.rooms.get(code);
+    if (!room) return "Room not found";
+    if (!room.playerByUser(userId)) return "Only seated players can pause the game";
+
+    if (paused) {
+      room.pause(username);
+      // Freeze every pending timer for the table.
+      const t = this.timers.get(code);
+      if (t?.turn) { clearTimeout(t.turn); t.turn = undefined; }
+      if (t?.nextHand) { clearTimeout(t.nextHand); t.nextHand = undefined; }
+      this.broadcast(code);
+    } else {
+      room.resume(username);
+      this.broadcast(code);
+      // Resume the hand in progress, or queue up the next one.
+      if (room.handOver) this.maybeStart(code);
+      else this.armTurnTimer(code);
+    }
+    return null;
+  }
+
+  reveal(socket: Socket): string | null {
+    const { code, userId } = socket.data as { code: string; userId: number };
+    const room = this.rooms.get(code);
+    if (!room) return "Room not found";
+    const err = room.revealCards(userId);
+    if (err) return err;
+    this.broadcast(code);
+    return null;
+  }
+
   chat(socket: Socket, text: string) {
     const { code, username } = socket.data as { code: string; username: string };
     const room = this.rooms.get(code);
@@ -228,7 +265,7 @@ export class GameManager {
     const timers = this.timers.get(code);
     if (!room || !timers) return;
     if (timers.turn) clearTimeout(timers.turn);
-    if (room.handOver || room.actingSeat < 0) return;
+    if (room.handOver || room.actingSeat < 0 || room.paused) return;
     const seat = room.actingSeat;
     const player = room.seats[seat];
     if (!player) return;

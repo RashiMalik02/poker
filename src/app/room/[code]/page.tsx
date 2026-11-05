@@ -130,6 +130,17 @@ export default function RoomPage({ params }: { params: { code: string } }) {
         </div>
       )}
 
+      {game.state?.paused && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200">
+          <span>⏸ Game paused</span>
+          {me && (
+            <button className="btn-ghost px-3 py-1 text-xs" onClick={() => game.pause(false)}>
+              Resume
+            </button>
+          )}
+        </div>
+      )}
+
       {broke && (
         <div className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-sm text-gold">
           You&apos;re out of chips. Use <b>Add chips</b> to rebuy from your bankroll — or ask an
@@ -161,7 +172,22 @@ export default function RoomPage({ params }: { params: { code: string } }) {
                     Blinds {game.state.smallBlind}/{game.state.bigBlind} · Stack{" "}
                     <span className="font-bold text-gold">{me.stack.toLocaleString()}</span>
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {me.inHand && !me.folded && !me.revealed && (
+                      <button
+                        className="btn-ghost px-3 py-1.5 text-xs"
+                        onClick={() => game.reveal()}
+                        title="Show your hole cards to the table"
+                      >
+                        Show cards
+                      </button>
+                    )}
+                    <button
+                      className="btn-ghost px-3 py-1.5 text-xs"
+                      onClick={() => game.pause(!game.state!.paused)}
+                    >
+                      {game.state.paused ? "Resume" : "Pause"}
+                    </button>
                     <button
                       className="btn-ghost px-3 py-1.5 text-xs"
                       onClick={() => setRebuyOpen((v) => !v)}

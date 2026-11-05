@@ -68,6 +68,14 @@ app.prepare().then(() => {
       reply(cb, manager.act(socket, action));
     });
 
+    socket.on("pause", ({ paused }: { paused: boolean }, cb) => {
+      reply(cb, manager.setPause(socket, !!paused));
+    });
+
+    socket.on("reveal", (_payload, cb) => {
+      reply(cb, manager.reveal(socket));
+    });
+
     socket.on("chat", ({ text }: { text: string }) => {
       if (typeof text === "string") manager.chat(socket, text);
     });

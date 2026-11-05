@@ -17,6 +17,14 @@ export function Controls({
     if (info) setRaiseTo(info.minRaiseTo);
   }, [info?.minRaiseTo, info?.seat, state.handNumber, state.stage]);
 
+  if (state.paused) {
+    return (
+      <div className="flex h-24 items-center justify-center text-sm text-amber-200/80">
+        Game is paused.
+      </div>
+    );
+  }
+
   if (!info) {
     return (
       <div className="flex h-24 items-center justify-center text-sm text-white/40">

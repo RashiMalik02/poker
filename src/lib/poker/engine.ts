@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG: TableConfig = {
   smallBlind: 25,
   bigBlind: 50,
   minBuyIn: 1000,
-  maxBuyIn: 10000,
+  maxBuyIn: Number.POSITIVE_INFINITY, // unlimited — only bounded by the player's bankroll
 };
 
 /**
@@ -49,6 +49,7 @@ export class PokerTable {
   pot = 0; // chips already collected into the pot from previous streets
   handNumber = 0;
   handOver = true;
+  paused = false; // when true, no new hands start and the turn clock is frozen
   showdownResults: ShowdownResult[] | null = null;
   lastHandSummary: string | null = null;
   revealedSeats: Set<number> = new Set();
@@ -66,8 +67,11 @@ export class PokerTable {
     if (this.seats[seat]) return "Seat taken";
     if (this.seats.some((p) => p && p.userId === userId)) return "Already seated";
     const amount = Math.floor(buyIn);
-    if (amount < this.config.minBuyIn || amount > this.config.maxBuyIn) {
-      return `Buy-in must be between ${this.config.minBuyIn} and ${this.config.maxBuyIn}`;
+    const { minBuyIn, maxBuyIn } = this.config;
+    if (amount < minBuyIn || amount > maxBuyIn) {
+      return Number.isFinite(maxBuyIn)
+        ? `Buy-in must be between ${minBuyIn} and ${maxBuyIn}`
+        : `Buy-in must be at least ${minBuyIn}`;
     }
     this.seats[seat] = {
       userId,
@@ -117,7 +121,10 @@ export class PokerTable {
     const p = this.playerByUser(userId);
     if (!p) return "Not seated";
     if (amount <= 0) return "Invalid amount";
-    if (p.stack + (p.pendingBuyIn ?? 0) + amount > this.config.maxBuyIn) {
+    if (
+      Number.isFinite(this.config.maxBuyIn) &&
+      p.stack + (p.pendingBuyIn ?? 0) + amount > this.config.maxBuyIn
+    ) {
       return `Table max is ${this.config.maxBuyIn} chips`;
     }
     if (this.handOver || !p.inHand) {
@@ -146,7 +153,40 @@ export class PokerTable {
   // ---------- hand lifecycle ----------
 
   canStart(): boolean {
-    return this.handOver && this.readyPlayers().length >= 2;
+    return this.handOver && !this.paused && this.readyPlayers().length >= 2;
+  }
+
+  // ---------- pause / show cards ----------
+
+  // Freeze the table: no new hands start and the active turn clock stops.
+  pause(byName: string): boolean {
+    if (this.paused) return false;
+    this.paused = true;
+    this.system(`${byName} paused the game.`);
+    return true;
+  }
+
+  // Unfreeze; give whoever is to act a fresh turn clock.
+  resume(byName: string): boolean {
+    if (!this.paused) return false;
+    this.paused = false;
+    if (!this.handOver && this.actingSeat >= 0) {
+      this.turnEndsAt = Date.now() + TURN_MS;
+    }
+    this.system(`${byName} resumed the game.`);
+    return true;
+  }
+
+  // Voluntarily show your hole cards to the whole table for the current hand.
+  revealCards(userId: number): string | null {
+    const seat = this.seats.findIndex((p) => p && p.userId === userId);
+    if (seat === -1) return "Not seated";
+    const p = this.seats[seat]!;
+    if (!p.inHand || p.holeCards.length === 0) return "No cards to show";
+    if (this.revealedSeats.has(seat)) return null;
+    this.revealedSeats.add(seat);
+    this.system(`${p.name} showed their cards.`);
+    return null;
   }
 
   startHand(): boolean {
@@ -238,6 +278,7 @@ export class PokerTable {
   // Returns an error string, or null on success.
   act(userId: number, action: PlayerAction): string | null {
     if (this.handOver) return "No hand in progress";
+    if (this.paused) return "Game is paused";
     const seat = this.seats.findIndex((p) => p && p.userId === userId);
     if (seat === -1) return "Not seated";
     if (seat !== this.actingSeat) return "Not your turn";
@@ -625,8 +666,7 @@ export class PokerTable {
     for (let s = 0; s < MAX_SEATS; s++) {
       const p = this.seats[s];
       if (!p) continue;
-      const showHole =
-        p.userId === forUserId || (this.stage === "showdown" && this.revealedSeats.has(s));
+      const showHole = p.userId === forUserId || this.revealedSeats.has(s);
       players.push({
         userId: p.userId,
         name: p.name,
@@ -641,6 +681,7 @@ export class PokerTable {
         lastAction: p.lastAction,
         holeCards: showHole ? p.holeCards : null,
         cardsFaceDown: p.inHand && !p.folded && !showHole ? p.holeCards.length : 0,
+        revealed: this.revealedSeats.has(s),
         leaving: p.leaving,
       });
     }
@@ -677,8 +718,9 @@ export class PokerTable {
       pot: this.pot + this.seats.reduce((sum, p) => sum + (p?.bet ?? 0), 0),
       pots: livePots,
       dealerSeat: this.dealerSeat,
+      paused: this.paused,
       currentToAct: this.handOver ? -1 : this.actingSeat,
-      turnEndsAt: this.handOver ? 0 : this.turnEndsAt,
+      turnEndsAt: this.handOver || this.paused ? 0 : this.turnEndsAt,
       currentBet: this.currentBet,
       minRaise: this.minRaise,
       smallBlind: this.config.smallBlind,

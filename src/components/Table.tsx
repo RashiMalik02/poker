@@ -144,9 +144,9 @@ function BuyInDialog({
   onCancel: () => void;
 }) {
   const MIN = 1000;
-  const MAX = 10000;
-  const cap = Math.min(MAX, Math.max(MIN, bankroll));
-  const [amount, setAmount] = useState(Math.min(cap, 2000));
+  // No table cap anymore — the buy-in is limited only by the player's bankroll.
+  const [amount, setAmount] = useState(Math.min(bankroll, 2000));
+  const valid = amount >= MIN && amount <= bankroll;
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -166,14 +166,29 @@ function BuyInDialog({
               <span className="font-bold text-gold">{amount.toLocaleString()}</span>
             </div>
             <input
-              type="range"
+              type="number"
               min={MIN}
-              max={cap}
+              max={bankroll}
               step={100}
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/15 accent-gold"
+              onChange={(e) => setAmount(Math.floor(Number(e.target.value) || 0))}
+              className="input py-1.5 text-sm"
             />
+            <div className="flex items-center justify-between text-[11px] text-white/40">
+              <span>Min {MIN.toLocaleString()}</span>
+              <button
+                type="button"
+                className="text-gold hover:underline"
+                onClick={() => setAmount(bankroll)}
+              >
+                All in ({bankroll.toLocaleString()})
+              </button>
+            </div>
+            {!valid && (
+              <p className="text-xs text-red-400">
+                Enter between {MIN.toLocaleString()} and {bankroll.toLocaleString()} chips.
+              </p>
+            )}
           </>
         )}
         <div className="flex gap-2">
@@ -182,7 +197,7 @@ function BuyInDialog({
           </button>
           <button
             className="btn-gold flex-1"
-            disabled={bankroll < MIN}
+            disabled={bankroll < MIN || !valid}
             onClick={() => onConfirm(amount)}
           >
             Sit

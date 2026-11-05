@@ -14,6 +14,8 @@ export interface GameApi {
   rebuy: (amount: number) => void;
   act: (action: PlayerAction) => void;
   chat: (text: string) => void;
+  pause: (paused: boolean) => void;
+  reveal: () => void;
   clearError: () => void;
 }
 
@@ -71,7 +73,9 @@ export function useGame(code: string): GameApi {
   const rebuy = useCallback((amount: number) => socketRef.current?.emit("rebuy", { amount }), []);
   const act = useCallback((action: PlayerAction) => socketRef.current?.emit("action", action), []);
   const chat = useCallback((text: string) => socketRef.current?.emit("chat", { text }), []);
+  const pause = useCallback((paused: boolean) => socketRef.current?.emit("pause", { paused }), []);
+  const reveal = useCallback(() => socketRef.current?.emit("reveal", {}), []);
   const clearError = useCallback(() => setError(null), []);
 
-  return { state, connected, error, sit, stand, rebuy, act, chat, clearError };
+  return { state, connected, error, sit, stand, rebuy, act, chat, pause, reveal, clearError };
 }
