@@ -216,7 +216,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
           </div>
         </div>
 
-        <div className="h-[70vh] lg:h-auto">
+        <div className="h-[70vh] min-h-0 lg:h-auto lg:overflow-hidden">
           <SidePanel code={code} messages={game.state?.messages ?? []} onChat={game.chat} />
         </div>
       </div>

@@ -52,7 +52,7 @@ export function SidePanel({
         </button>
       </div>
 
-      <div ref={listRef} className="scroll-thin flex-1 space-y-1.5 overflow-y-auto p-3 text-sm">
+      <div ref={listRef} className="scroll-thin min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3 text-sm">
         {messages.length === 0 && (
           <p className="text-xs text-white/30">Game log and chat will appear here.</p>
         )}
